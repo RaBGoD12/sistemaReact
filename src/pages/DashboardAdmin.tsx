@@ -1,0 +1,86 @@
+
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+
+const DashboardAdmin = () => {
+  const { usuario, cerrarSesion } = useAuth();
+  const navegar = useNavigate();
+
+  const handleCerrarSesion = () => {
+    cerrarSesion();
+    navegar('/login');
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      {/* Header */}
+      <header className="bg-gray-900 text-white shadow">
+        <div className="mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+            <div>
+              <h1 className="font-bold text-xl">VENTASPRO</h1>
+            </div>
+          </div>
+          <div className="flex items-center space-x-4">
+            <div className="text-sm">
+              <span className="hidden md:inline">Conectado como: </span>
+              <span className="font-medium">{usuario?.usuario}</span>
+            </div>
+            <button
+              onClick={handleCerrarSesion}
+              className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md text-sm"
+            >
+              Cerrar Sesión
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Content */}
+      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        <div className="pb-5 border-b border-gray-200">
+          <h2 className="text-xl font-bold text-gray-800">Panel de Administrador</h2>
+        </div>
+
+        <div className="mt-8 bg-white shadow-md rounded-lg p-6">
+          <div className="flex items-center justify-center h-40 bg-blue-50 rounded-lg mb-6">
+            <div className="text-center">
+              <div className="text-blue-500 mb-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-medium text-gray-900">Bienvenido al Sistema</h3>
+              <p className="mt-1 text-gray-600">Has iniciado sesión como Administrador</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-indigo-50 p-4 rounded-lg">
+              <h3 className="font-medium text-indigo-700 mb-3">Usuarios</h3>
+              <p className="text-2xl font-bold text-gray-900">25</p>
+              <p className="text-sm text-gray-500">Usuarios registrados</p>
+            </div>
+            <div className="bg-green-50 p-4 rounded-lg">
+              <h3 className="font-medium text-green-700 mb-3">Ventas</h3>
+              <p className="text-2xl font-bold text-gray-900">152</p>
+              <p className="text-sm text-gray-500">Ventas este mes</p>
+            </div>
+            <div className="bg-yellow-50 p-4 rounded-lg">
+              <h3 className="font-medium text-yellow-700 mb-3">Productos</h3>
+              <p className="text-2xl font-bold text-gray-900">458</p>
+              <p className="text-sm text-gray-500">Productos en inventario</p>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+};
+
+export default DashboardAdmin;
