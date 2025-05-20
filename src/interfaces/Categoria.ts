@@ -7,8 +7,3 @@ export interface Categoria {
   tieneSubcategorias?: boolean;
 }
 
-export interface CategoriaDTO {
-  id?: number;
-  nombre: string;
-  subcategorias?: CategoriaDTO[];
-}

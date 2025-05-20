@@ -1,41 +1,52 @@
 import axios from 'axios';
-import { PRODUCT_ROUTES } from '../config/apiConfig';
-import type { Producto, Precio } from '../interfaces/Producto';
+import type { Producto } from '../interfaces/Producto';
+import apiClient from '../config/apiClient';
 
-export const ProductoServices = {
-  obtenerTodos: async (): Promise<Producto[]> => {
-    const respuesta = await axios.get<Producto[]>(PRODUCT_ROUTES.BASE);
-    return respuesta.data;
+
+export const ProductoService = {
+  getAllProductos: async (): Promise<Producto[]> => {
+    const response = await apiClient.get<Producto[]>('/productos');
+    return response.data;
   },
-  
-  obtenerPorId: async (id: number): Promise<Producto> => {
-    const respuesta = await axios.get<Producto>(PRODUCT_ROUTES.BY_ID(id));
-    return respuesta.data;
+
+  getProductoById: async (id: number): Promise<Producto> => {
+    const response = await apiClient.get<Producto>(`/productos/${id}`);
+    return response.data;
   },
-  
-  obtenerPorCodigo: async (codigo: string): Promise<Producto> => {
-    const respuesta = await axios.get<Producto>(PRODUCT_ROUTES.BY_CODE(codigo));
-    return respuesta.data;
+
+
+  createProducto: async (productoData: Omit<Producto, 'idProducto'>): Promise<Producto> => {
+    const response = await apiClient.post<Producto>('/productos', productoData);
+    return response.data;
   },
-  
-  buscarPorNombre: async (nombre: string): Promise<Producto[]> => {
-    const respuesta = await axios.get<Producto[]>(PRODUCT_ROUTES.BY_NAME(nombre));
-    return respuesta.data;
+
+  updateProducto: async (id: number, productoData: Producto): Promise<Producto> => {
+    const response = await apiClient.put<Producto>(`/productos/${id}`, productoData);
+    return response.data;
   },
-  
-  buscarPorCategoria: async (categoria: string): Promise<Producto[]> => {
-    const respuesta = await axios.get<Producto[]>(PRODUCT_ROUTES.BY_CATEGORY(categoria));
-    return respuesta.data;
+
+  deleteProducto: async (id: number): Promise<void> => {
+    await apiClient.delete(`/productos/${id}`);
   },
-  
-  obtenerPrecios: async (idProducto: number): Promise<Precio[]> => {
-    const respuesta = await axios.get<Precio[]>(PRODUCT_ROUTES.PRICES(idProducto));
-    return respuesta.data;
+
+  getProductosByCategoria: async (nombreCategoria: string): Promise<Producto[]> => {
+    const response = await apiClient.get<Producto[]>(`/productos/categoria/${encodeURIComponent(nombreCategoria)}`);
+    return response.data;
   },
-  
-  obtenerStock: async (): Promise<Producto[]> => {
-    // Endpoint específico para obtener solo productos con stock
-    const respuesta = await axios.get<Producto[]>(`${PRODUCT_ROUTES.BASE}/stock`);
-    return respuesta.data;
-  }
+
+  // El backend usa /distribuidor/{nombreDistribuidor} para proveedores
+  getProductosByProveedor: async (nombreProveedor: string): Promise<Producto[]> => {
+    const response = await apiClient.get<Producto[]>(`/productos/distribuidor/${encodeURIComponent(nombreProveedor)}`);
+    return response.data;
+  },
+
+  getProductosByCodigo: async (codigo: string): Promise<Producto[]> => {
+    const response = await apiClient.get<Producto[]>(`/productos/codigo/${encodeURIComponent(codigo)}`);
+    return response.data;
+  },
+
+  getProductosByNombre: async (nombre: string): Promise<Producto[]> => {
+    const response = await apiClient.get<Producto[]>(`/productos/nombre/${encodeURIComponent(nombre)}`);
+    return response.data;
+  },
 };
