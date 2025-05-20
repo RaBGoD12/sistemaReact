@@ -6,10 +6,7 @@ const DashboardAdmin = () => {
   const { usuario, cerrarSesion } = useAuth();
   const navegar = useNavigate();
 
-  const handleCerrarSesion = () => {
-    cerrarSesion();
-    navegar('/login');
-  };
+ 
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -31,12 +28,7 @@ const DashboardAdmin = () => {
               <span className="hidden md:inline">Conectado como: </span>
               <span className="font-medium">{usuario?.usuario}</span>
             </div>
-            <button
-              onClick={handleCerrarSesion}
-              className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md text-sm"
-            >
-              Cerrar Sesión
-            </button>
+          
           </div>
         </div>
       </header>
