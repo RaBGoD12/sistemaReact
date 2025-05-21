@@ -9,6 +9,9 @@ import CajeroSistemaVentas from './pages/CajeroSistemaVentas';
 import Layout from './components/layout/Layout';
 import GestionUsuarios from './pages/GestionUsuarios';
 
+// Componente para depuración
+
+
 // Componente para redirigir al dashboard según el rol
 const RedirectToDashboard = () => {
   const { usuario, tieneRol } = useAuth();
@@ -67,19 +70,30 @@ const RutaProtegida = ({ children, rolRequerido }: RutaProtegidaProps) => {
 
 function App() {
   console.log('App renderizando');
-  const { usuario } = useAuth();
-  console.log('App - Estado de usuario:', usuario ? 'Autenticado' : 'No autenticado');
+  const { usuario, cargando } = useAuth();
+  console.log('App - Estado de usuario:', usuario ? 'Autenticado' : 'No autenticado', 'Cargando:', cargando);
+
+  // Mostrar un indicador de carga mientras se verifica el token
+  if (cargando) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
 
   return (
     <Routes>
       {/* Ruta principal redirige al dashboard según el rol */}
       <Route path="/" element={<RedirectToDashboard />} />
       
-      {/* Ruta de login */}
+      {/* Ruta de login - IMPORTANTE: No redirigir si cargando es true */}
       <Route path="/login" element={
-        usuario ? <Navigate to="/" replace /> : <Login />
+        usuario && !cargando ? <Navigate to="/" replace /> : <Login />
       } />
+      
 
+      
       {/* Rutas protegidas con layout global */}
       <Route path="/dashboard/admin" element={
         <RutaProtegida rolRequerido="ADMIN">
@@ -104,6 +118,7 @@ function App() {
           </Layout>
         </RutaProtegida>
       } />
+      
       <Route path="/pages/GestionUsuarios" element={
         <RutaProtegida rolRequerido="ADMIN">
           <Layout>

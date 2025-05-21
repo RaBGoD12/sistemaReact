@@ -242,9 +242,9 @@ const SidebarMenu = ({ vistaActual, cambiarVista, usuario, cerrarSesion }: Sideb
               <div className="ml-3 transition-opacity duration-200">
                 <p className="text-sm font-medium text-white">{usuario?.usuario || 'Usuario'}</p>
                 <p className="text-xs text-gray-400">
-                  {tieneRol('CAJERO') && 'Cajero'}
-                  {tieneRol('ADMIN') && 'Administrador'}
-                  {tieneRol('ALMACENERO') && 'Almacenero'}
+                  {tieneRol('ROLE_CAJERO') && 'Cajero'}
+                  {tieneRol('ROLE_ADMIN') && 'Administrador'}
+                  {tieneRol('ROLE_ALMACENERO') && 'Almacenero'}
                 </p>
               </div>
             )}
@@ -254,7 +254,7 @@ const SidebarMenu = ({ vistaActual, cambiarVista, usuario, cerrarSesion }: Sideb
         {/* Menú principal con scroll */}
         <nav className="px-4 py-5 space-y-2 overflow-y-auto h-[calc(100vh-200px)]">
           {/* Dashboard para Admin */}
-          {tieneRol('ADMIN') && (
+          {tieneRol('ROLE_ADMIN') && (
             <MenuItem 
               texto="Dashboard Admin" 
               vista="dashboard-admin" 
@@ -264,7 +264,7 @@ const SidebarMenu = ({ vistaActual, cambiarVista, usuario, cerrarSesion }: Sideb
           )}
           
           {/* Dashboard para Almacenero */}
-          {tieneRol('ALMACENERO') && (
+          {tieneRol('ROLE_ALMACENERO') && (
             <MenuItem 
               texto="Dashboard Almacén" 
               vista="dashboard-almacenero" 
@@ -274,7 +274,7 @@ const SidebarMenu = ({ vistaActual, cambiarVista, usuario, cerrarSesion }: Sideb
           )}
           
           {/* Sección de Sistema de Caja */}
-          {(tieneRol('CAJERO') || tieneRol('ADMIN')) && (
+          {(tieneRol('ROLE_CAJERO') || tieneRol('ROLE_ADMIN')) && (
             <div className="mb-2">
               <SectionTitle 
                 title="Sistema de Caja" 
@@ -307,7 +307,7 @@ const SidebarMenu = ({ vistaActual, cambiarVista, usuario, cerrarSesion }: Sideb
           )}
           
           {/* Administración (solo para Admin) */}
-          {tieneRol('ADMIN') && (
+          {tieneRol('ROLE_ADMIN') && (
             <div className="mb-2">
               <SectionTitle 
                 title="Administración" 
@@ -343,7 +343,7 @@ const SidebarMenu = ({ vistaActual, cambiarVista, usuario, cerrarSesion }: Sideb
           )}
           
           {/* Inventario (solo para Almacenero) */}
-          {tieneRol('ALMACENERO') && (
+          {tieneRol('ROLE_ALMACENERO') && (
             <div className="mb-2">
               <SectionTitle 
                 title="Inventario" 

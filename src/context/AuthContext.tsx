@@ -7,13 +7,14 @@ import type { CredencialesLogin, RespuestaAutenticacion } from '../interfaces/Us
 import type { RolNombre } from '../interfaces/enums';
 
 // Constantes para los roles
-const ADMIN_ROLE: RolNombre = 'ADMIN';
-const ALMACENERO_ROLE: RolNombre = 'ALMACENERO';
-const CAJERO_ROLE: RolNombre = 'CAJERO';
+const ROLE_ADMIN = 'ROLE_ADMIN';
+const ROLE_ALMACENERO = 'ROLE_ALMACENERO';
+const ROLE_CAJERO = 'ROLE_CAJERO';
+
 
 interface TokenDecodificado {
   sub: string;
-  authorities?: string | string[];
+  authorities?: string[] | string; // Ahora puede ser array (nuevo formato) o string (viejo formato)
   exp: number;
   [key: string]: any;
 }
@@ -50,25 +51,37 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Usar useRef para almacenar el interceptor actual
   const interceptorRef = useRef<number | null>(null);
 
-  // Función para asignar un rol basado en el nombre de usuario (solución temporal)
-  const asignarRolPorNombreUsuario = (nombreUsuario: string): RolNombre => {
-    console.log('Asignando rol basado en nombre de usuario:', nombreUsuario);
+  // Función mejorada para extraer roles del token
+  const extraerRolesDelToken = (decodificado: TokenDecodificado): RolNombre[] => {
+    console.log('Datos del token decodificado:', decodificado);
+    let roles: RolNombre[] = [];
     
-    if (nombreUsuario.toLowerCase().includes('admin')) {
-      return ADMIN_ROLE;
-    } else if (nombreUsuario.toLowerCase().includes('almacen')) {
-      return ALMACENERO_ROLE;
-    } else {
-      // Por defecto asignamos CAJERO
-      return CAJERO_ROLE;
+    // Verificar si authorities existe y procesarlo según su tipo
+    if (decodificado.authorities) {
+      console.log('Authorities del token:', decodificado.authorities);
+      
+      // Si es un array (nuevo formato), usarlo directamente
+      if (Array.isArray(decodificado.authorities)) {
+        roles = decodificado.authorities as RolNombre[];
+      } 
+      // Si es un string (formato antiguo), dividirlo por comas
+      else if (typeof decodificado.authorities === 'string') {
+        roles = decodificado.authorities.split(',').map(rol => rol.trim()) as RolNombre[];
+      }
     }
+    
+    console.log('Roles extraídos:', roles);
+    return roles;
   };
 
   useEffect(() => {
     const tokenAlmacenado = localStorage.getItem('token');
     if (tokenAlmacenado) {
       try {
+        console.log('Decodificando token almacenado...');
         const decodificado = jwtDecode<TokenDecodificado>(tokenAlmacenado);
+        console.log('Token decodificado:', decodificado);
+        
         const tiempoActual = Date.now() / 1000;
         
         if (decodificado.exp && decodificado.exp < tiempoActual) {
@@ -81,15 +94,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           // Obtener el nombre de usuario
           const nombreUsuario = decodificado.sub;
           
-          // Para este backend específico, asignar rol basado en el nombre de usuario
-          // ya que authorities está vacío
-          const rolAsignado = asignarRolPorNombreUsuario(nombreUsuario);
+          // Extraer roles del token
+          const rolesUsuario = extraerRolesDelToken(decodificado);
           
-          console.log(`Asignando rol ${rolAsignado} a usuario ${nombreUsuario}`);
+          console.log(`Usuario ${nombreUsuario} con roles:`, rolesUsuario);
           
           setUsuario({
             usuario: nombreUsuario,
-            roles: [{ nombreRol: rolAsignado }]
+            roles: rolesUsuario.map(rol => ({ nombreRol: rol }))
           });
         }
       } catch (error) {
@@ -176,14 +188,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           const decodificado = jwtDecode<TokenDecodificado>(jwt);
           const nombreUsuario = decodificado.sub;
           
-          // Asignar rol basado en el nombre de usuario
-          const rolAsignado = asignarRolPorNombreUsuario(nombreUsuario);
+          // Extraer roles del token usando la función mejorada
+          const rolesUsuario = extraerRolesDelToken(decodificado);
           
-          console.log(`Asignando rol ${rolAsignado} a usuario ${nombreUsuario} durante login`);
+          console.log(`Usuario ${nombreUsuario} autenticado con roles:`, rolesUsuario);
           
           setUsuario({
             usuario: nombreUsuario,
-            roles: [{ nombreRol: rolAsignado }]
+            roles: rolesUsuario.map(rol => ({ nombreRol: rol }))
           });
           
           return true;

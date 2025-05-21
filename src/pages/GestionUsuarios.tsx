@@ -50,7 +50,7 @@ const GestionUsuarios = () => {
     password: '',
     confirmPassword: '',
     activo: true,
-    roles: ['CAJERO']
+    roles: ['ROLE_CAJERO']
   });
   
   // Estado para mensajes de acción
@@ -78,9 +78,16 @@ const GestionUsuarios = () => {
   const cargarUsuarios = async () => {
     setCargando(true);
     setError(null);
+    console.log('Cargando usuarios y verificando roles...');
     
     try {
       const data = await ServicioUsuarios.obtenerTodos();
+      
+      // Log para depuración
+      data.forEach(user => {
+        console.log(`Usuario: ${user.usuario}, Roles:`, user.roles);
+      });
+      
       setUsuarios(data);
       setUsuariosFiltrados(data);
     } catch (err: any) {
@@ -153,7 +160,7 @@ const GestionUsuarios = () => {
       password: '',
       confirmPassword: '',
       activo: true,
-      roles: ['CAJERO'] // Por defecto, nuevo usuario será cajero
+      roles: ['ROLE_CAJERO'] // Por defecto, nuevo usuario será cajero
     });
     setModoEdicion(false);
     setUsuarioEditando(null);
@@ -162,14 +169,20 @@ const GestionUsuarios = () => {
   
   // Función para abrir modal de edición
   const abrirModalEdicion = (usuario: Usuario) => {
+    console.log('Editando usuario:', usuario);
+    
     setFormUsuario({
       id: usuario.id,
       usuario: usuario.usuario,
       password: '',
       confirmPassword: '',
       activo: usuario.activo || true,
-      roles: usuario.roles ? usuario.roles.map(rol => rol.nombreRol) : ['CAJERO']
+      // Si no tiene roles, usar un array vacío para evitar errores
+      roles: usuario.roles && usuario.roles.length > 0 
+        ? usuario.roles.map(rol => rol.nombreRol) 
+        : [] 
     });
+    
     setModoEdicion(true);
     setUsuarioEditando(usuario);
     setMostrarModal(true);
@@ -226,6 +239,12 @@ const GestionUsuarios = () => {
     
     if (!modoEdicion && !formUsuario.password) {
       mostrarMensaje('La contraseña es obligatoria para nuevos usuarios', 'error');
+      return;
+    }
+    
+    // Validar que se haya seleccionado al menos un rol
+    if (formUsuario.roles.length === 0) {
+      mostrarMensaje('Debe seleccionar al menos un rol', 'error');
       return;
     }
     
@@ -325,11 +344,11 @@ const GestionUsuarios = () => {
   // Obtener color de badge para rol
   const getColorBadgeRol = (rol: RolNombre) => {
     switch (rol) {
-      case 'ADMIN':
+      case 'ROLE_ADMIN':
         return 'bg-yellow-100 text-yellow-800';
-      case 'CAJERO':
+      case 'ROLE_CAJERO':
         return 'bg-green-100 text-green-800';
-      case 'ALMACENERO':
+      case 'ROLE_ALMACENERO':
         return 'bg-blue-100 text-blue-800';
       default:
         return 'bg-gray-100 text-gray-800';
@@ -688,7 +707,7 @@ const GestionUsuarios = () => {
                     Roles
                   </label>
                   <div className="flex flex-wrap gap-2">
-                    {(['ADMIN', 'CAJERO', 'ALMACENERO'] as RolNombre[]).map(rol => (
+                    {(['ROLE_ADMIN', 'ROLE_CAJERO', 'ROLE_ALMACENERO'] as RolNombre[]).map(rol => (
                       <button
                         key={rol}
                         type="button"
