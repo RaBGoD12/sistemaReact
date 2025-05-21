@@ -1,8 +1,23 @@
-import { useState } from 'react';
-import { Menu, X } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import type { Usuario } from '../../interfaces/Usuario';
+import {
+  Menu,
+  X,
+  Home,
+  BarChart3,
+  Users,
+  Package,
+  ShoppingCart,
+  Settings,
+  LogOut,
+  ChevronsLeft,
+  ChevronsRight,
+  DollarSign,
+  Clock,
+  ArrowUpDown
+} from 'lucide-react';
 
 interface SidebarMenuProps {
   vistaActual: string;
@@ -14,29 +29,137 @@ interface SidebarMenuProps {
 
 const SidebarMenu = ({ vistaActual, cambiarVista, usuario, cerrarSesion }: SidebarMenuProps) => {
   const [sidebarAbierto, setSidebarAbierto] = useState(true);
-  const [mostrarCaja, setMostrarCaja] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mostrarSubmenuCaja, setMostrarSubmenuCaja] = useState(false);
+  const [mostrarSubmenuAdmin, setMostrarSubmenuAdmin] = useState(false);
+  const [mostrarSubmenuInventario, setMostrarSubmenuInventario] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { tieneRol } = useAuth();
+
+  // Detectar cambios en el tamaño de la ventana
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        // En dispositivos pequeños, cerrar el sidebar inicialmente y colapsarlo
+        setSidebarAbierto(false);
+        setSidebarCollapsed(true);
+      } else if (window.innerWidth < 1024) {
+        // En tablets, mantener el sidebar abierto pero colapsado
+        setSidebarAbierto(true);
+        setSidebarCollapsed(true);
+      } else {
+        // En pantallas grandes, mantener el sidebar abierto y expandido
+        setSidebarAbierto(true);
+        setSidebarCollapsed(false);
+      }
+    };
+
+    // Establecer estado inicial basado en el tamaño actual
+    handleResize();
+
+    // Añadir listener para cambios de tamaño
+    window.addEventListener('resize', handleResize);
+
+    // Limpiar listener al desmontar
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  // Detectar cambios en la ruta para actualizar la vista activa
+  useEffect(() => {
+    // Extraer la vista de la URL
+    const path = location.pathname;
+    
+    if (path.includes('admin')) {
+      cambiarVista('dashboard-admin');
+      setMostrarSubmenuAdmin(true);
+    } else if (path.includes('almacenero')) {
+      cambiarVista('dashboard-almacenero');
+      setMostrarSubmenuInventario(true);
+    } else if (path.includes('CajeroSistemaVentas')) {
+      // Si hay un estado con una vista específica de cajero
+      if (location.state && (location.state as any).view) {
+        cambiarVista((location.state as any).view);
+      } else {
+        cambiarVista('ventas');
+      }
+      setMostrarSubmenuCaja(true);
+    }
+  }, [location.pathname, location.state, cambiarVista]);
 
   const toggleSidebar = () => {
     setSidebarAbierto(!sidebarAbierto);
   };
 
-  const MenuItem = ({ texto, vista }: { texto: string; vista: string }) => (
+  const toggleCollapse = () => {
+    setSidebarCollapsed(!sidebarCollapsed);
+  };
+
+  const MenuItem = ({ 
+    texto, 
+    vista, 
+    icono, 
+    onClick 
+  }: { 
+    texto: string; 
+    vista: string; 
+    icono: React.ReactNode;
+    onClick?: () => void;
+  }) => (
     <button
-      className={`w-full flex items-center px-4 py-3 text-sm ${
+      className={`w-full flex items-center px-4 py-3 text-sm rounded-lg transition-all duration-200 ${
         vistaActual === vista
-          ? 'bg-blue-600 text-white'
-          : 'text-gray-300 hover:bg-gray-800'
-      } rounded-md transition-colors`}
+          ? 'bg-gray-800 text-white shadow-md'
+          : 'text-gray-400 hover:bg-gray-800/40 hover:text-white'
+      }`}
       onClick={() => {
         cambiarVista(vista);
-        // Redirigir según la vista seleccionada
-        navigate('/pages/CajeroSistemaVentas', { state: { view: vista } });
+        if (onClick) {
+          onClick();
+        } else {
+          // Redirigir según la vista seleccionada si no hay onClick personalizado
+          navigate('/pages/CajeroSistemaVentas', { state: { view: vista } });
+        }
+        
+        // En dispositivos móviles, cerrar el sidebar después de la selección
+        if (window.innerWidth < 768) {
+          setSidebarAbierto(false);
+        }
       }}
     >
-      {getIconoParaVista(vista)}
-      <span className="ml-3">{texto}</span>
+      {icono}
+      {!sidebarCollapsed && <span className="ml-3 transition-opacity duration-200">{texto}</span>}
+    </button>
+  );
+
+  // Componente para secciones colapsables
+  const SectionTitle = ({ 
+    title, 
+    isOpen, 
+    toggle,
+    icon
+  }: { 
+    title: string; 
+    isOpen: boolean; 
+    toggle: () => void;
+    icon: React.ReactNode;
+  }) => (
+    <button
+      onClick={toggle}
+      className="w-full flex items-center justify-between px-4 py-3 text-sm text-gray-400 hover:bg-gray-800/20 hover:text-white rounded-lg mb-1"
+    >
+      <div className="flex items-center">
+        {icon}
+        {!sidebarCollapsed && <span className="ml-3">{title}</span>}
+      </div>
+      {!sidebarCollapsed && (
+        <ArrowUpDown 
+          size={16} 
+          className={`transition-transform duration-200 ${isOpen ? 'transform rotate-180' : ''}`} 
+        />
+      )}
     </button>
   );
 
@@ -48,177 +171,232 @@ const SidebarMenu = ({ vistaActual, cambiarVista, usuario, cerrarSesion }: Sideb
   const getIconoParaVista = (vista: string) => {
     switch (vista) {
       case 'apertura':
-        return (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-        );
+        return <Clock size={20} />;
       case 'ventas':
-        return (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-          </svg>
-        );
+        return <ShoppingCart size={20} />;
       case 'cierre':
-        return (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-          </svg>
-        );
+        return <DollarSign size={20} />;
       default:
-        return null;
+        return <Home size={20} />;
     }
   };
 
+  // Determinar ancho del sidebar según estado
+  const sidebarWidth = sidebarCollapsed ? 'w-20' : 'w-64';
+
   return (
     <>
-      {/* Overlay para cerrar el sidebar en móvil */}
+      {/* Overlay para cerrar el sidebar en pantallas pequeñas */}
       {sidebarAbierto && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden" 
           onClick={toggleSidebar}
-        ></div>
+          aria-hidden="true"
+        />
       )}
 
       {/* Sidebar */}
       <div 
         className={`
-          fixed inset-y-0 left-0 w-64 bg-black text-white transform transition-transform duration-300 ease-in-out z-30
+          fixed inset-y-0 left-0 bg-black border-r border-gray-900 text-white shadow-lg transform transition-all duration-300 ease-in-out z-30
           ${sidebarAbierto ? 'translate-x-0' : '-translate-x-full'}
-          lg:relative lg:translate-x-0 lg:z-0
+          ${sidebarWidth}
+          lg:relative lg:translate-x-0
         `}
       >
-        <div className="flex items-center justify-between h-16 px-6 border-b border-gray-700">
-          <h1 className="text-xl font-bold">VENTASPRO</h1>
-          <button
-            onClick={toggleSidebar}
-            className="p-1 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 lg:hidden"
-          >
-            <X size={24} />
-          </button>
-        </div>
-
-        <div className="px-4 py-5 border-b border-gray-700">
+        {/* Header del sidebar */}
+        <div className="flex items-center justify-between h-16 px-4 border-b border-gray-800">
           <div className="flex items-center">
-            <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
+            <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-gray-800">
+              <ShoppingCart size={20} className="text-white" />
             </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium">{usuario?.usuario || 'Usuario'}</p>
-              <p className="text-xs text-gray-400">
-                {tieneRol('CAJERO') && 'Cajero'}
-                {tieneRol('ADMIN') && 'Administrador'}
-                {tieneRol('ALMACENERO') && 'Almacenero'}
-              </p>
-            </div>
+            {!sidebarCollapsed && (
+              <h1 className="ml-3 text-xl font-bold transition-opacity duration-200">VENTASPRO</h1>
+            )}
+          </div>
+          <div className="flex">
+            <button
+              onClick={toggleCollapse}
+              className="p-1 rounded-md focus:outline-none hover:bg-gray-800"
+              aria-label={sidebarCollapsed ? "Expandir menú" : "Colapsar menú"}
+            >
+              {sidebarCollapsed ? <ChevronsRight size={20} /> : <ChevronsLeft size={20} />}
+            </button>
+            <button
+              onClick={toggleSidebar}
+              className="p-1 rounded-md focus:outline-none hover:bg-gray-800 lg:hidden ml-1"
+              aria-label="Cerrar menú"
+            >
+              <X size={20} />
+            </button>
           </div>
         </div>
 
-        <nav className="px-4 py-5 space-y-6">
-          {/* Botones de Dashboard */}
-          <div className="space-y-2">
-            {tieneRol('ADMIN') && (
-              <button
-                onClick={() => {
-                  navigate('/dashboard/admin');
-                  cambiarVista('dashboard');
-                }}
-                className={`w-full flex items-center px-4 py-3 text-sm ${
-                  vistaActual === 'dashboard-admin'
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-300 hover:bg-gray-800'
-                } rounded-md transition-colors`}
-              >
-                {/* Icono representativo para dashboard admin */}
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h4v11H3zM9 3h4v18H9zM15 14h4v7h-4z" />
-                </svg>
-                <span className="ml-3">Dashboard Admin</span>
-              </button>
-            )}
-            {tieneRol('ALMACENERO') && (
-              <button
-                onClick={() => {
-                  navigate('/dashboard/almacenero');
-                  cambiarVista('dashboard');
-                }}
-                className={`w-full flex items-center px-4 py-3 text-sm ${
-                  vistaActual === 'dashboard-almacenero'
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-300 hover:bg-gray-800'
-                } rounded-md transition-colors`}
-              >
-                {/* Icono representativo para dashboard almacenero */}
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-                <span className="ml-3">Dashboard Almacenero</span>
-              </button>
-            )}
-            {tieneRol('CAJERO') && (
-              <button
-                onClick={() => {
-                  navigate('/pages/CajeroSistemaVentas');
-                  cambiarVista('ventas');
-                }}
-
-              >
-
-              </button>
+        {/* Información del usuario */}
+        <div className="px-4 py-5 border-b border-gray-800">
+          <div className="flex items-center">
+            <div className="h-10 w-10 rounded-full bg-gray-800 flex items-center justify-center">
+              <Users size={18} />
+            </div>
+            {!sidebarCollapsed && (
+              <div className="ml-3 transition-opacity duration-200">
+                <p className="text-sm font-medium text-white">{usuario?.usuario || 'Usuario'}</p>
+                <p className="text-xs text-gray-400">
+                  {tieneRol('CAJERO') && 'Cajero'}
+                  {tieneRol('ADMIN') && 'Administrador'}
+                  {tieneRol('ALMACENERO') && 'Almacenero'}
+                </p>
+              </div>
             )}
           </div>
+        </div>
 
-          {/* Bloque de Sistema de Caja (solo para CAJERO y ADMIN) */}
-          {(tieneRol('CAJERO') || tieneRol('ADMIN')) && (
-            <>
-              {tieneRol('ADMIN') && (
-                <button
-                  onClick={() => setMostrarCaja(!mostrarCaja)}
-                  className="w-full flex items-center px-4 py-3 text-sm text-gray-300 hover:bg-gray-800 rounded-md transition-colors"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
-                  <span className="ml-3">Sistema de Caja</span>
-                </button>
-              )}
-              {tieneRol('CAJERO') || (tieneRol('ADMIN') && mostrarCaja) ? (
-                <div className="space-y-2">
-                  <MenuItem texto="Apertura de Caja" vista="apertura" />
-                  <MenuItem texto="Ventas" vista="ventas" />
-                  <MenuItem texto="Cierre de Caja" vista="cierre" />
-                </div>
-              ) : null}
-            </>
+        {/* Menú principal con scroll */}
+        <nav className="px-4 py-5 space-y-2 overflow-y-auto h-[calc(100vh-200px)]">
+          {/* Dashboard para Admin */}
+          {tieneRol('ADMIN') && (
+            <MenuItem 
+              texto="Dashboard Admin" 
+              vista="dashboard-admin" 
+              icono={<BarChart3 size={20} />}
+              onClick={() => navigate('/dashboard/admin')}
+            />
           )}
-          {/* Aquí puedes agregar otros botones si lo deseas */}
-
-          <div className="mt-auto">
-      <button
-        onClick={handleLogout}
-        className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md text-sm w-full"
-      >
-        Cerrar Sesión
-      </button>
-    </div>
           
+          {/* Dashboard para Almacenero */}
+          {tieneRol('ALMACENERO') && (
+            <MenuItem 
+              texto="Dashboard Almacén" 
+              vista="dashboard-almacenero" 
+              icono={<Package size={20} />}
+              onClick={() => navigate('/dashboard/almacenero')}
+            />
+          )}
+          
+          {/* Sección de Sistema de Caja */}
+          {(tieneRol('CAJERO') || tieneRol('ADMIN')) && (
+            <div className="mb-2">
+              <SectionTitle 
+                title="Sistema de Caja" 
+                isOpen={mostrarSubmenuCaja} 
+                toggle={() => setMostrarSubmenuCaja(!mostrarSubmenuCaja)}
+                icon={<ShoppingCart size={20} />}
+              />
+              
+              {/* Submenu de Caja */}
+              {(mostrarSubmenuCaja || sidebarCollapsed) && (
+                <div className={`space-y-1 mt-1 ${sidebarCollapsed ? '' : 'ml-2'}`}>
+                  <MenuItem 
+                    texto="Apertura de Caja" 
+                    vista="apertura" 
+                    icono={<Clock size={20} />}
+                  />
+                  <MenuItem 
+                    texto="Ventas" 
+                    vista="ventas" 
+                    icono={<ShoppingCart size={20} />}
+                  />
+                  <MenuItem 
+                    texto="Cierre de Caja" 
+                    vista="cierre" 
+                    icono={<DollarSign size={20} />}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Administración (solo para Admin) */}
+          {tieneRol('ADMIN') && (
+            <div className="mb-2">
+              <SectionTitle 
+                title="Administración" 
+                isOpen={mostrarSubmenuAdmin} 
+                toggle={() => setMostrarSubmenuAdmin(!mostrarSubmenuAdmin)}
+                icon={<Settings size={20} />}
+              />
+              
+              {/* Submenu de Administración */}
+              {(mostrarSubmenuAdmin || sidebarCollapsed) && (
+                <div className={`space-y-1 mt-1 ${sidebarCollapsed ? '' : 'ml-2'}`}>
+                  <MenuItem 
+                    texto="Usuarios" 
+                    vista="usuarios" 
+                    icono={<Users size={20} />}
+                    onClick={() => navigate('/pages/GestionUsuarios')}
+                  />
+                  <MenuItem 
+                    texto="Productos" 
+                    vista="productos-admin" 
+                    icono={<Package size={20} />}
+                  />
+                  <MenuItem 
+                    texto="Reportes" 
+                    vista="reportes-admin" 
+                    icono={<BarChart3 size={20} />}
+                  />
+
+              
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Inventario (solo para Almacenero) */}
+          {tieneRol('ALMACENERO') && (
+            <div className="mb-2">
+              <SectionTitle 
+                title="Inventario" 
+                isOpen={mostrarSubmenuInventario} 
+                toggle={() => setMostrarSubmenuInventario(!mostrarSubmenuInventario)}
+                icon={<Package size={20} />}
+              />
+              
+              {/* Submenu de Inventario */}
+              {(mostrarSubmenuInventario || sidebarCollapsed) && (
+                <div className={`space-y-1 mt-1 ${sidebarCollapsed ? '' : 'ml-2'}`}>
+                  <MenuItem 
+                    texto="Productos" 
+                    vista="productos-inventario" 
+                    icono={<Package size={20} />}
+                  />
+                  <MenuItem 
+                    texto="Proveedores" 
+                    vista="proveedores" 
+                    icono={<Users size={20} />}
+                  />
+                  <MenuItem 
+                    texto="Reportes" 
+                    vista="reportes-inventario" 
+                    icono={<BarChart3 size={20} />}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </nav>
         
+        {/* Footer con botón de cerrar sesión */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-800">
+          <button
+            onClick={handleLogout}
+            className={`w-full flex items-center justify-${sidebarCollapsed ? 'center' : 'start'} px-4 py-2 text-sm bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors`}
+            aria-label="Cerrar sesión"
+          >
+            <LogOut size={18} />
+            {!sidebarCollapsed && <span className="ml-2">Cerrar Sesión</span>}
+          </button>
+        </div>
       </div>
 
-      
-
-      {/* Botón para abrir sidebar en móvil */}
+      {/* Botón flotante para abrir sidebar en pantallas pequeñas */}
       <button
         onClick={toggleSidebar}
-        className="fixed bottom-4 left-4 p-3 rounded-full bg-blue-600 text-white shadow-lg z-10 lg:hidden"
+        className={`fixed bottom-4 left-4 p-3 rounded-full bg-gray-800 text-white shadow-lg z-10 lg:hidden ${sidebarAbierto ? 'hidden' : 'block'}`}
+        aria-label="Abrir menú"
       >
         <Menu size={24} />
       </button>
-
-      
     </>
   );
 };

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -8,8 +8,15 @@ const PaginaLogin = () => {
   const [clave, setClave] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [recordarme, setRecordarme] = useState(false);
-  const { iniciarSesion, cargando } = useAuth();
+  const { iniciarSesion, cargando, error: authError } = useAuth();
   const navegar = useNavigate();
+
+  // Actualizamos el estado de error local si cambia en el contexto de autenticación
+  useEffect(() => {
+    if (authError) {
+      setError(authError);
+    }
+  }, [authError]);
 
   const manejarSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -26,14 +33,20 @@ const PaginaLogin = () => {
     }
 
     try {
+      console.log('Intentando iniciar sesión con:', { usuario });
       const exito = await iniciarSesion({ usuario, clave });
       
       if (exito) {
+        console.log('Inicio de sesión exitoso, redirigiendo...');
         navegar('/');
       } else {
-        setError('Credenciales incorrectas. Por favor, intente nuevamente.');
+        // Si iniciarSesion devuelve false pero no hay error en authError
+        if (!authError) {
+          setError('Credenciales incorrectas. Por favor, intente nuevamente.');
+        }
       }
-    } catch (err) {
+    } catch (err: any) {
+      console.error('Error en el manejo de inicio de sesión:', err);
       setError('Error al intentar iniciar sesión. Inténtelo más tarde.');
     }
   };
@@ -130,7 +143,7 @@ const PaginaLogin = () => {
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <span>Credenciales incorrectas. Por favor, intente nuevamente.</span>
+                <span>{error}</span>
               </div>
             </div>
           )}
@@ -156,7 +169,6 @@ const PaginaLogin = () => {
                   required
                 />
               </div>
-
             </div>
 
             <div className="mb-5">
@@ -181,7 +193,6 @@ const PaginaLogin = () => {
                   required
                 />
               </div>
-         
             </div>
 
             <div className="flex items-center justify-between mb-5">
@@ -197,7 +208,6 @@ const PaginaLogin = () => {
                   Recordarme
                 </label>
               </div>
-             
             </div>
 
             <div className="mb-6">
@@ -206,12 +216,16 @@ const PaginaLogin = () => {
                 disabled={cargando}
                 className="w-full py-3 bg-gray-700 hover:bg-gray-800 text-white rounded-md transition duration-200 text-sm font-medium"
               >
-                Iniciar Sesión
+                {cargando ? 'Iniciando sesión...' : 'Iniciar Sesión'}
               </button>
             </div>
           </form>
 
           <div className="text-center">
+            {/* Información adicional sobre el backend */}
+            <div className="text-xs text-gray-500 mt-8 border-t pt-4">
+              <p>Nota: Asegúrese de que el servidor de backend esté en ejecución en http://localhost:8080</p>
+            </div>
           </div>
         </div>
       </div>

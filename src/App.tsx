@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import type { RolNombre } from './interfaces/enums';
 import Login from './pages/Login';
@@ -6,65 +6,111 @@ import DashboardAdmin from './pages/DashboardAdmin';
 import DashboardAlmacenero from './pages/DashboardAlmacenero';
 import PaginaNoEncontrada from './pages/PaginaNoEncontrada';
 import CajeroSistemaVentas from './pages/CajeroSistemaVentas';
-import SidebarMenu from './components/layout/SidebarMenu';
-import AperturaCaja from './components/cajero/AperturaCaja';
-import CierreCaja from './components/cajero/CierreCaja';  
 import Layout from './components/layout/Layout';
+import GestionUsuarios from './pages/GestionUsuarios';
 
 // Componente para redirigir al dashboard según el rol
 const RedirectToDashboard = () => {
   const { usuario, tieneRol } = useAuth();
+  console.log('RedirectToDashboard - Usuario:', usuario?.usuario, 'Roles:', usuario?.roles);
 
   if (!usuario) {
+    console.log('RedirectToDashboard - No hay usuario, redirigiendo a /login');
     return <Navigate to="/login" />;
   }
 
   if (tieneRol('ADMIN')) {
+    console.log('RedirectToDashboard - Usuario es ADMIN, redirigiendo a /dashboard/admin');
     return <Navigate to="/dashboard/admin" />;
   } else if (tieneRol('ALMACENERO')) {
+    console.log('RedirectToDashboard - Usuario es ALMACENERO, redirigiendo a /dashboard/almacenero');
     return <Navigate to="/dashboard/almacenero" />;
   } else if (tieneRol('CAJERO')) {
+    console.log('RedirectToDashboard - Usuario es CAJERO, redirigiendo a /pages/CajeroSistemaVentas');
     return <Navigate to="/pages/CajeroSistemaVentas" />;
   }
 
+  console.log('RedirectToDashboard - Usuario sin rol reconocido, redirigiendo a /login');
   return <Navigate to="/login" />;
 };
 
 // Componente para rutas protegidas
 interface RutaProtegidaProps {
-  children: React.ReactNode | ((authProps: { usuario: any; cerrarSesion: () => void }) => React.ReactNode);
+  children: React.ReactNode;
   rolRequerido?: RolNombre;
 }
 
 const RutaProtegida = ({ children, rolRequerido }: RutaProtegidaProps) => {
-  const { usuario, tieneRol, cerrarSesion } = useAuth();
+  const { usuario, tieneRol } = useAuth();
+  const location = useLocation();
+  
+  console.log('RutaProtegida - Verificando acceso:', {
+    ruta: location.pathname,
+    usuarioPresente: !!usuario,
+    rolRequerido: rolRequerido,
+    tieneRolRequerido: rolRequerido ? tieneRol(rolRequerido) : true
+  });
   
   if (!usuario) {
-    return <Navigate to="/login" replace />;
+    console.log('RutaProtegida - No hay usuario, redirigiendo a /login');
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
   
   if (rolRequerido && !tieneRol(rolRequerido)) {
+    console.log(`RutaProtegida - Usuario no tiene rol ${rolRequerido}, redirigiendo a /`);
     return <Navigate to="/" replace />;
   }
   
-  return <>{typeof children === 'function' ? children({ usuario, cerrarSesion }) : children}</>;
+  console.log('RutaProtegida - Acceso permitido');
+  return <>{children}</>;
 };
 
 function App() {
+  console.log('App renderizando');
+  const { usuario } = useAuth();
+  console.log('App - Estado de usuario:', usuario ? 'Autenticado' : 'No autenticado');
+
   return (
     <Routes>
       {/* Ruta principal redirige al dashboard según el rol */}
       <Route path="/" element={<RedirectToDashboard />} />
       
       {/* Ruta de login */}
-      <Route path="/login" element={<Login />} />
+      <Route path="/login" element={
+        usuario ? <Navigate to="/" replace /> : <Login />
+      } />
 
       {/* Rutas protegidas con layout global */}
-      <Route element={<RutaProtegida><Layout /></RutaProtegida>}>
-        <Route path="/dashboard/admin" element={<DashboardAdmin />} />
-        <Route path="/dashboard/almacenero" element={<DashboardAlmacenero />} />
-        <Route path="/pages/CajeroSistemaVentas" element={<CajeroSistemaVentas />} />
-      </Route>
+      <Route path="/dashboard/admin" element={
+        <RutaProtegida rolRequerido="ADMIN">
+          <Layout>
+            <DashboardAdmin />
+          </Layout>
+        </RutaProtegida>
+      } />
+      
+      <Route path="/dashboard/almacenero" element={
+        <RutaProtegida rolRequerido="ALMACENERO">
+          <Layout>
+            <DashboardAlmacenero />
+          </Layout>
+        </RutaProtegida>
+      } />
+      
+      <Route path="/pages/CajeroSistemaVentas" element={
+        <RutaProtegida rolRequerido="CAJERO">
+          <Layout>
+            <CajeroSistemaVentas />
+          </Layout>
+        </RutaProtegida>
+      } />
+      <Route path="/pages/GestionUsuarios" element={
+        <RutaProtegida rolRequerido="ADMIN">
+          <Layout>
+            <GestionUsuarios />
+          </Layout>
+        </RutaProtegida>
+      } />
       
       {/* Ruta para páginas no encontradas */}
       <Route path="*" element={<PaginaNoEncontrada />} />

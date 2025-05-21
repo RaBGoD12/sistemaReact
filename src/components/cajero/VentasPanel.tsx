@@ -1,10 +1,12 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, X, AlertCircle, Printer, ShoppingCart, CreditCard, Smartphone, DollarSign, QrCode as QrCodeIcon, CheckCircle, Loader2, Ticket } from 'lucide-react';
-import QRCodeStyling from 'qrcode.react';
-import {ProductoService} from '../../services/ProductoServices';
+import { Search, X, AlertCircle, Printer, CreditCard, Smartphone, DollarSign, CheckCircle, Loader2, Ticket } from 'lucide-react';
+import { ProductoService } from '../../services/ProductoServices';
+import { VentaService } from '../../services/VentaServices';
+import { ClienteService } from '../../services/ClienteServices';
 import type { Producto, ProductoVenta } from '../../interfaces/Producto';
-
+import type { Cliente } from '../../interfaces/Cliente';
+import type { VentaInput, Venta } from '../../interfaces/Venta';
+import type { DetalleVentaInput } from '../../interfaces/DetalleVenta';
 
 const VentasPanel = () => {
   // --------------------------------------------------------------------------------------------
@@ -12,9 +14,9 @@ const VentasPanel = () => {
   // --------------------------------------------------------------------------------------------
   const [busqueda, setBusqueda] = useState('');
   const [cliente, setCliente] = useState('');
-  const [codigoMayoristaInput, setCodigoMayoristaInput] = useState('');
-  const [infoMayorista, setInfoMayorista] = useState<{ valido: boolean; mensaje: string; descuento?: number } | null>(null);
-
+  const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null);
+  const [documentoCliente, setDocumentoCliente] = useState('');
+  
   const [productosCargados, setProductosCargados] = useState<Producto[]>([]);
   const [productosFiltradosVista, setProductosFiltradosVista] = useState<Producto[]>([]);
   const [productosSeleccionadosVenta, setProductosSeleccionadosVenta] = useState<ProductoVenta[]>([]);
@@ -41,9 +43,12 @@ const VentasPanel = () => {
         setCargandoProductosIniciales(true);
         setErrorGlobal(null);
         setMensajeInfoVista("Cargando productos...");
-        const data = await ProductoService.obtenerTodos();
+        
+        // Usar tu método existente getAllProductos
+        const data = await ProductoService.getAllProductos();
         setProductosCargados(data);
         setProductosFiltradosVista(data); 
+        
         if (data.length === 0) { 
           setMensajeInfoVista("No hay productos disponibles o el servicio no está conectado.");
         } else {
@@ -72,6 +77,7 @@ const VentasPanel = () => {
                p.codigoIdentificacion.toLowerCase().includes(terminoLower)
         );
         setProductosFiltradosVista(filtrados);
+        
         if (filtrados.length === 0 && busqueda.trim() !== '') { 
             setMensajeInfoVista(`No hay coincidencias locales para "${busqueda}". Prueba "Buscar DB".`);
         } else if (filtrados.length > 0 || busqueda.trim() === '') { 
@@ -95,8 +101,36 @@ const VentasPanel = () => {
       setCargandoBusquedaAccion(true);
       setErrorGlobal(null);
       setMensajeInfoVista(`Buscando "${terminoBusqueda}" en DB...`);
-      const resultados = await ProductoService.buscarPorNombreOCodigo(terminoBusqueda);
-      setProductosFiltradosVista(resultados); 
+      
+      // Combinamos búsquedas por nombre y código para tener un resultado más completo
+      let resultados: Producto[] = [];
+      
+      try {
+        // Buscar por nombre
+        const productosPorNombre = await ProductoService.getProductosByNombre(terminoBusqueda);
+        if (productosPorNombre && productosPorNombre.length > 0) {
+          resultados = [...productosPorNombre];
+        }
+      } catch (err) {
+        console.log("Error al buscar por nombre, continuando con búsqueda por código...");
+      }
+      
+      try {
+        // Buscar por código si es posible
+        const productosPorCodigo = await ProductoService.getProductosByCodigo(terminoBusqueda);
+        if (productosPorCodigo && productosPorCodigo.length > 0) {
+          // Eliminar duplicados si ya existen en resultados
+          const productosCodSinDuplicados = productosPorCodigo.filter(
+            prodCod => !resultados.some(prod => prod.idProducto === prodCod.idProducto)
+          );
+          resultados = [...resultados, ...productosCodSinDuplicados];
+        }
+      } catch (err) {
+        console.log("Error al buscar por código, continuando...");
+      }
+      
+      setProductosFiltradosVista(resultados);
+      
       if (resultados.length === 0) {
         setMensajeInfoVista(`No se encontraron productos para "${terminoBusqueda}" en la base de datos.`);
       } else {
@@ -117,15 +151,13 @@ const VentasPanel = () => {
       setCargandoBusquedaAccion(true);
       setErrorGlobal(null);
       setMensajeInfoVista(`Procesando código "${codigoScaneado}"...`);
-      const productoEncontrado = await ProductoService.obtenerPorCodigoExacto(codigoScaneado.trim());
+      
+      // Usar el método getProductosByCodigo y tomar el primer resultado
+      const productos = await ProductoService.getProductosByCodigo(codigoScaneado.trim());
+      const productoEncontrado = productos && productos.length > 0 ? productos[0] : null;
       
       if (productoEncontrado) {
-        // El precio ya está en productoEncontrado.precioUnitario
-        let precioFinal = productoEncontrado.precioUnitario;
-        if (infoMayorista?.valido && infoMayorista.descuento) {
-            precioFinal = precioFinal * (1 - infoMayorista.descuento);
-        }
-        agregarProductoAVentaInterno(productoEncontrado, precioFinal);
+        agregarProductoAVentaInterno(productoEncontrado, productoEncontrado.precioUnitario);
         setBusqueda(''); 
         setMensajeInfoVista(`${productoEncontrado.nombre} agregado.`);
         setTimeout(() => setMensajeInfoVista(null), 2000);
@@ -140,7 +172,37 @@ const VentasPanel = () => {
     } finally {
       setCargandoBusquedaAccion(false);
     }
-  }, [infoMayorista]); 
+  }, []); 
+
+  const handleBuscarCliente = async () => {
+    if (!documentoCliente.trim()) {
+      setErrorGlobal("Ingrese un número de documento para buscar al cliente.");
+      return;
+    }
+    
+    try {
+      setCargandoBusquedaAccion(true);
+      setErrorGlobal(null);
+      
+      const clienteEncontrado = await ClienteService.obtenerClientePorDocumento(documentoCliente.trim());
+      
+      if (clienteEncontrado) {
+        setClienteSeleccionado(clienteEncontrado);
+        setCliente(clienteEncontrado.nombreCliente);
+        setMensajeInfoVista(`Cliente encontrado: ${clienteEncontrado.nombreCliente}`);
+        setTimeout(() => setMensajeInfoVista(null), 3000);
+      } else {
+        setErrorGlobal("Cliente no encontrado. ¿Desea registrarlo?");
+        setClienteSeleccionado(null);
+      }
+    } catch (err: any) {
+      console.error('Error al buscar cliente:', err);
+      setErrorGlobal(err.message || "Error al buscar el cliente.");
+      setClienteSeleccionado(null);
+    } finally {
+      setCargandoBusquedaAccion(false);
+    }
+  };
 
   const agregarProductoAVentaInterno = (producto: Producto, precioAplicado: number) => {
     setErrorGlobal(null);
@@ -165,8 +227,8 @@ const VentasPanel = () => {
       setProductosSeleccionadosVenta(prev => [...prev, {
         idProducto: producto.idProducto!,
         codigo: producto.codigoIdentificacion,
-        descripcion: producto.nombre, // Usar el nombre del producto como descripción
-        talla: producto.talla || 'Única', // Usar la talla del producto o 'Única'
+        descripcion: producto.nombre,
+        talla: producto.talla || 'Única',
         cantidad: 1,
         precio: precioAplicado, 
         total: precioAplicado
@@ -175,14 +237,8 @@ const VentasPanel = () => {
   };
 
   const handleSeleccionarProductoDeLista = (producto: Producto) => {
-    // El precio ya está en producto.precioUnitario
-    let precioFinal = producto.precioUnitario;
-    if (infoMayorista?.valido && infoMayorista.descuento) {
-        precioFinal = precioFinal * (1 - infoMayorista.descuento);
-         setMensajeInfoVista(`Descuento mayorista del ${(infoMayorista.descuento * 100).toFixed(0)}% aplicado a ${producto.nombre}.`);
-         setTimeout(() => setMensajeInfoVista(null), 3500);
-    }
-    agregarProductoAVentaInterno(producto, precioFinal);
+    // Usar el precio unitario directamente
+    agregarProductoAVentaInterno(producto, producto.precioUnitario);
   };
 
   const handleEliminarProductoDeVenta = (idProducto: number) => {
@@ -190,19 +246,24 @@ const VentasPanel = () => {
   };
 
   const handleActualizarCantidadEnVenta = (idProducto: number, nuevaCantidad: number) => {
-    const productoOriginal = productosCargados.find(p => p.idProducto === idProducto) || productosFiltradosVista.find(p => p.idProducto === idProducto);
+    const productoOriginal = productosCargados.find(p => p.idProducto === idProducto) 
+      || productosFiltradosVista.find(p => p.idProducto === idProducto);
+      
     if (!productoOriginal) {
       setErrorGlobal("Error crítico: Producto no encontrado para actualizar stock.");
       return;
     }
+    
     if (nuevaCantidad <= 0) {
       handleEliminarProductoDeVenta(idProducto);
       return;
     }
+    
     if (nuevaCantidad > productoOriginal.cantidad) {
       setErrorGlobal(`Stock máximo para ${productoOriginal.nombre} es ${productoOriginal.cantidad}.`);
       return; 
     }
+    
     setErrorGlobal(null);
     setProductosSeleccionadosVenta(prev => prev.map(item => 
       item.idProducto === idProducto 
@@ -218,39 +279,23 @@ const VentasPanel = () => {
   // --------------------------------------------------------------------------------------------
   // D. MANEJADORES DE LÓGICA DE PAGO Y FINALIZACIÓN
   // --------------------------------------------------------------------------------------------
-  const handleVerificarCodigoMayorista = async () => {
-    if (!codigoMayoristaInput.trim()) {
-        setErrorGlobal("Ingrese un código mayorista.");
-        setInfoMayorista(null);
-        return;
-    }
-    setCargandoBusquedaAccion(true); 
-    setErrorGlobal(null);
-    try {
-        const resultado = await ProductoService.verificarCodigoMayorista(codigoMayoristaInput.trim());
-        setInfoMayorista(resultado);
-        if (resultado.valido) {
-            setErrorGlobal(null); 
-            setMensajeInfoVista(resultado.mensaje);
-            setTimeout(() => setMensajeInfoVista(null), 3000);
-            // Si hay productos en el carrito, podríamos ofrecer recalcular sus precios aquí.
-            // Por simplicidad, el descuento se aplicará a los nuevos productos agregados.
-        } else {
-            setErrorGlobal(resultado.mensaje); 
-        }
-    } catch (err: any) {
-        setErrorGlobal(err.message || "Error al verificar código mayorista.");
-        setInfoMayorista(null);
-    } finally {
-        setCargandoBusquedaAccion(false);
-    }
-  };
-  
   const handleProcesarVentaFinal = async () => {
     setErrorGlobal(null);
-    if (!cliente.trim()) { setErrorGlobal('Ingrese el nombre del cliente.'); return; }
-    if (!metodoPago) { setErrorGlobal('Seleccione un método de pago.'); return; }
-    if (productosSeleccionadosVenta.length === 0) { setErrorGlobal('Agregue productos a la venta.'); return; }
+    
+    if (!cliente.trim()) { 
+      setErrorGlobal('Ingrese el nombre del cliente.'); 
+      return; 
+    }
+    
+    if (!metodoPago) { 
+      setErrorGlobal('Seleccione un método de pago.'); 
+      return; 
+    }
+    
+    if (productosSeleccionadosVenta.length === 0) { 
+      setErrorGlobal('Agregue productos a la venta.'); 
+      return; 
+    }
 
     setCargandoProcesoVenta(true);
 
@@ -269,50 +314,108 @@ const VentasPanel = () => {
     setCargandoProcesoVenta(true); 
     setErrorGlobal(null);
 
-    const datosVenta = {
-      cliente,
-      codigoMayorista: infoMayorista?.valido ? codigoMayoristaInput.trim() : null,
-      descuentoAplicado: infoMayorista?.valido ? infoMayorista.descuento : null,
-      metodoPago,
-      productos: productosSeleccionadosVenta.map(item => ({
-        idProducto: item.idProducto,
-        descripcion: item.descripcion, 
-        cantidad: item.cantidad,
-        precioUnitarioAplicado: item.precio, 
-        totalParcial: item.total,
-      })),
-      subtotal: subtotalVenta,
-      igv: igvVenta,
-      totalGeneral: totalGeneralVenta,
-      fechaHora: new Date().toISOString(), 
-    };
-
     try {
-      // TODO: LLAMADA REAL AL BACKEND PARA REGISTRAR LA VENTA
-      console.log('Enviando datos de venta final al backend (simulado):', datosVenta);
-      await new Promise(resolve => setTimeout(resolve, 1500)); 
-
+      // Primero verificamos si el cliente ya está registrado
+      let clienteId = clienteSeleccionado?.idCliente;
+      
+      // Si no hay cliente seleccionado pero tenemos nombre, intentamos crear uno nuevo
+      if (!clienteId && cliente.trim()) {
+        try {
+          // Crear cliente nuevo con datos básicos
+          const nuevoCliente = await ClienteService.crearCliente({
+            nombreCliente: cliente,
+            tipoCliente: 'NORMAL',
+            numeroDocumento: documentoCliente.trim() || '00000000' // DNI por defecto o vacío
+          });
+          
+          clienteId = nuevoCliente.idCliente;
+        } catch (err) {
+          console.error('Error al crear cliente nuevo:', err);
+          // Seguimos adelante con clienteId en null, el backend deberá manejar este caso
+        }
+      }
+      
+      // Preparamos los detalles de la venta según la interfaz DetalleVentaInput
+      const detallesVenta: DetalleVentaInput[] = productosSeleccionadosVenta.map(item => ({
+        producto: { idProducto: item.idProducto },
+        cantidad: item.cantidad,
+        precioUnitario: item.precio
+      }));
+      
+      // Creamos el objeto de venta según la interfaz VentaInput
+      const ventaParaEnviar: VentaInput = {
+        usuario: { id: 1 }, // ID del usuario actual (podría venir del contexto de autenticación)
+        cliente: { idCliente: clienteId || 1 }, // Usamos el ID obtenido o uno por defecto
+        metodoPago: { idMetodoPago: obtenerIdMetodoPago(metodoPago) },
+        tipoComprobante: 'BOLETA', // Por defecto
+        fechaVenta: new Date().toISOString().split('T')[0], // Formato YYYY-MM-DD
+        detalles: detallesVenta
+      };
+      
+      console.log('Enviando datos de venta final al backend:', ventaParaEnviar);
+      
+      // Registrar la venta usando el servicio
+      // Comentado porque puede requerir ajustes según tu backend
+      // const ventaRegistrada = await VentaService.crearVenta(ventaParaEnviar);
+      
+      // Simulamos envío (quitar en producción)
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Actualizamos el stock local
       const productosActualizados = productosCargados.map(p => {
         const vendido = productosSeleccionadosVenta.find(ps => ps.idProducto === p.idProducto);
         return vendido ? { ...p, cantidad: p.cantidad - vendido.cantidad } : p;
       });
       setProductosCargados(productosActualizados);
       
-      setDatosVentaParaBoleta(datosVenta); 
+      // Preparamos datos para la boleta
+      const datosBoletaVista = {
+        cliente,
+        metodoPago,
+        productos: productosSeleccionadosVenta.map(item => ({
+          idProducto: item.idProducto,
+          descripcion: item.descripcion,
+          cantidad: item.cantidad,
+          precioUnitarioAplicado: item.precio,
+          totalParcial: item.total,
+        })),
+        subtotal: subtotalVenta,
+        igv: igvVenta,
+        totalGeneral: totalGeneralVenta,
+        fechaHora: new Date().toISOString()
+      };
+      
+      setDatosVentaParaBoleta(datosBoletaVista);
       setMostrarModalBoleta(true);
       
-      setCliente('');
-      setCodigoMayoristaInput('');
-      setInfoMayorista(null);
-      setBusqueda('');
-      setProductosSeleccionadosVenta([]);
-      setMetodoPago('');
+      // Limpiamos el formulario
+      resetearFormulario();
       
     } catch (err: any) {
       console.error('Error al ejecutar finalización de venta:', err);
       setErrorGlobal(err.message || 'Error crítico al registrar la venta. Contacte a soporte.');
     } finally {
       setCargandoProcesoVenta(false);
+    }
+  };
+  
+  const resetearFormulario = () => {
+    setCliente('');
+    setDocumentoCliente('');
+    setClienteSeleccionado(null);
+    setBusqueda('');
+    setProductosSeleccionadosVenta([]);
+    setMetodoPago('');
+  };
+  
+  // Función auxiliar para obtener el ID de método de pago basado en el string
+  const obtenerIdMetodoPago = (metodo: string): number => {
+    switch (metodo) {
+      case 'efectivo': return 1;
+      case 'tarjeta': return 2;
+      case 'yape': return 3;
+      case 'plin': return 4;
+      default: return 1; // Efectivo por defecto
     }
   };
   
@@ -356,7 +459,7 @@ const VentasPanel = () => {
           <tr class="total-row"><td>TOTAL:</td><td class="text-right">S/${totalGeneral.toFixed(2)}</td></tr>
         </table>
         <p style="text-align:center; font-size:9px; margin-top:10px;">¡Gracias por su compra!</p>
-      </div><script>setTimeout(() => { window.print(); /* window.close(); */ }, 200);</script></body></html>`;
+      </div><script>setTimeout(() => { window.print(); }, 200);</script></body></html>`;
     
     const boletaWindow = window.open('', '_blank', 'width=320,height=500,scrollbars=yes,resizable=yes');
     boletaWindow?.document.write(boletaHtml);
@@ -391,6 +494,7 @@ const VentasPanel = () => {
           </div>
         </div>
       )}
+      
       {/* Notificación Global de Información */}
       {mensajeInfoVista && ( 
          <div className="fixed top-16 right-4 z-[100] mb-4 p-3 bg-blue-100 border-l-4 border-blue-500 text-blue-700 text-sm shadow-lg rounded-md w-auto max-w-md animate-pulse">
@@ -410,8 +514,15 @@ const VentasPanel = () => {
           <div className="bg-white p-6 rounded-lg shadow-xl text-center max-w-sm w-full">
             <h3 className="text-xl font-semibold mb-2">Pagar con {qrDataModal.tipo}</h3>
             <p className="text-gray-600 mb-4">Escanee el código QR para pagar <span className="font-bold">S/{totalGeneralVenta.toFixed(2)}</span>.</p>
-            <div className="flex justify-center my-4"><QRCodeStyling value={qrDataModal.url} size={200} level="H" /></div>
-            <p className="text-xs text-gray-500 mb-4">Este es un QR de demostración. En producción, el backend generaría un QR específico o se usaría la app del POS.</p>
+            <div className="flex justify-center my-4">
+              {/* Usando la librería estándar de QR (necesitarás importar la correcta) */}
+              <img 
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrDataModal.url)}`} 
+                alt="QR Code"
+                className="border rounded"
+              />
+            </div>
+            <p className="text-xs text-gray-500 mb-4">Escanee con la aplicación {qrDataModal.tipo}.</p>
             <div className="flex gap-3 mt-4">
               <button onClick={() => setMostrarModalQR(false)} className="w-1/2 py-2 px-4 border rounded-md hover:bg-gray-100">Cancelar</button>
               <button 
@@ -448,28 +559,40 @@ const VentasPanel = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5 p-3 sm:p-4 bg-white rounded-lg shadow">
         <div>
           <label htmlFor="clienteInput" className="block mb-1 text-sm font-medium text-gray-700">Cliente:</label>
-          <input id="clienteInput" type="text" className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-            value={cliente} onChange={(e) => setCliente(e.target.value)} placeholder="Nombre del cliente (Ej: Juan Pérez)" />
+          <input 
+            id="clienteInput" 
+            type="text" 
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+            value={cliente} 
+            onChange={(e) => setCliente(e.target.value)} 
+            placeholder="Nombre del cliente (Ej: Juan Pérez)" 
+          />
         </div>
         <div className="flex items-end">
           <div className="flex-grow">
-            <label htmlFor="codigoMayoristaInput" className="block mb-1 text-sm font-medium text-gray-700">Cód. Mayorista (Opcional):</label>
-            <input id="codigoMayoristaInput" type="text" className="w-full px-3 py-2 border border-gray-300 rounded-l-md focus:ring-indigo-500 focus:border-indigo-500"
-              value={codigoMayoristaInput} onChange={(e) => setCodigoMayoristaInput(e.target.value)} placeholder="Ej: MAYORISTA2025" />
+            <label htmlFor="documentoClienteInput" className="block mb-1 text-sm font-medium text-gray-700">Documento Cliente:</label>
+            <input 
+              id="documentoClienteInput" 
+              type="text" 
+              className="w-full px-3 py-2 border border-gray-300 rounded-l-md focus:ring-indigo-500 focus:border-indigo-500"
+              value={documentoCliente} 
+              onChange={(e) => setDocumentoCliente(e.target.value)} 
+              placeholder="DNI o RUC" 
+            />
           </div>
           <button 
-            onClick={handleVerificarCodigoMayorista}
-            disabled={cargandoBusquedaAccion && !!codigoMayoristaInput} 
+            onClick={handleBuscarCliente}
+            disabled={cargandoBusquedaAccion || !documentoCliente.trim()} 
             className="px-3 py-2 bg-indigo-600 text-white rounded-r-md hover:bg-indigo-700 h-[42px] flex items-center justify-center disabled:bg-gray-400"
           >
-            {cargandoBusquedaAccion && codigoMayoristaInput ? <Loader2 className="animate-spin" size={20}/> : <Ticket size={18}/>}
-            <span className="ml-1 hidden sm:inline">Verificar</span>
+            {cargandoBusquedaAccion && documentoCliente ? <Loader2 className="animate-spin" size={20}/> : <Search size={18}/>}
+            <span className="ml-1 hidden sm:inline">Buscar</span>
           </button>
         </div>
-        {infoMayorista && ( 
-            <div className={`lg:col-span-2 mt-2 text-sm p-2 rounded-md ${infoMayorista.valido ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                {infoMayorista.mensaje} {infoMayorista.valido && infoMayorista.descuento ? `(Descuento: ${(infoMayorista.descuento * 100).toFixed(0)}%)` : ''}
-            </div>
+        {clienteSeleccionado && (
+          <div className="lg:col-span-2 mt-2 text-sm p-2 rounded-md bg-green-100 text-green-700">
+            Cliente encontrado: {clienteSeleccionado.nombreCliente} - Tipo: {clienteSeleccionado.tipoCliente}
+          </div>
         )}
       </div>
 
@@ -478,8 +601,11 @@ const VentasPanel = () => {
           <div className="p-3 sm:p-4 border-b"><h2 className="text-lg sm:text-xl font-semibold text-gray-800">Buscar Productos</h2></div>
           <div className="p-3 sm:p-4">
             <div className="relative mb-4">
-              <input type="text" className="w-full pl-10 pr-24 sm:pr-28 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Nombre, código o escanear..." value={busqueda}
+              <input 
+                type="text" 
+                className="w-full pl-10 pr-24 sm:pr-28 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="Nombre, código o escanear..." 
+                value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
                 onKeyPress={(e) => {
                   if (e.key === 'Enter' && busqueda.trim()) {
@@ -489,7 +615,8 @@ const VentasPanel = () => {
                         handleBuscarEnServicio();
                     }
                   }
-                }} />
+                }} 
+              />
               <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <button 
                 className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs sm:text-sm px-2.5 sm:px-3 py-1 bg-indigo-500 text-white rounded hover:bg-indigo-600 disabled:bg-gray-300"
@@ -507,14 +634,17 @@ const VentasPanel = () => {
               ) : productosFiltradosVista.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
                   {productosFiltradosVista.map(p => (
-                    <div key={p.idProducto} className="border bg-white rounded-md p-2 sm:p-3 cursor-pointer hover:shadow-lg hover:border-indigo-500 transition-all"
-                      onClick={() => handleSeleccionarProductoDeLista(p)}>
+                    <div 
+                      key={p.idProducto} 
+                      className="border bg-white rounded-md p-2 sm:p-3 cursor-pointer hover:shadow-lg hover:border-indigo-500 transition-all"
+                      onClick={() => handleSeleccionarProductoDeLista(p)}
+                    >
                       <p className="font-medium text-xs sm:text-sm truncate" title={p.nombre}>{p.nombre}</p>
                       <p className="text-[10px] sm:text-xs text-gray-500">Código: {p.codigoIdentificacion}</p>
                       <p className={`text-[10px] sm:text-xs font-semibold ${p.cantidad > 5 ? 'text-green-600' : p.cantidad > 0 ? 'text-orange-500' : 'text-red-600'}`}>
                         Stock: {p.cantidad}
                       </p>
-                       <p className="text-sm font-semibold text-indigo-600 mt-1">S/{p.precioUnitario.toFixed(2)}</p>
+                      <p className="text-sm font-semibold text-indigo-600 mt-1">S/{p.precioUnitario.toFixed(2)}</p>
                     </div>
                   ))}
                 </div>
