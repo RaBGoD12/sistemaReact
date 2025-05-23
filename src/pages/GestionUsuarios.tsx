@@ -73,23 +73,36 @@ const GestionUsuarios = () => {
   useEffect(() => {
     aplicarFiltros();
   }, [busqueda, filtroRol, filtroActivo, usuarios, ordenarPor, ordenAscendente]);
-  
   // Función para cargar usuarios desde el servicio
   const cargarUsuarios = async () => {
     setCargando(true);
     setError(null);
-    console.log('Cargando usuarios y verificando roles...');
+    console.log('Cargando usuarios con roles...');
     
     try {
-      const data = await ServicioUsuarios.obtenerTodos();
+      // Usar el nuevo endpoint que incluye roles
+      const data = await ServicioUsuarios.obtenerUsuariosConRoles();
       
       // Log para depuración
       data.forEach(user => {
         console.log(`Usuario: ${user.usuario}, Roles:`, user.roles);
       });
       
-      setUsuarios(data);
-      setUsuariosFiltrados(data);
+      // Asegurar que los roles estén correctamente formateados
+      const usuariosConRolesNormalizados = data.map(user => {
+        // Si el usuario no tiene roles, crear un array vacío
+        if (!user.roles) {
+          user.roles = [];
+        }
+        // Si los roles no están en el formato esperado, normalizarlos
+        if (user.roles.length > 0 && typeof user.roles[0] === 'string') {
+          user.roles = (user.roles as unknown as string[]).map(rol => ({ nombreRol: rol as RolNombre }));
+        }
+        return user;
+      });
+      
+      setUsuarios(usuariosConRolesNormalizados);
+      setUsuariosFiltrados(usuariosConRolesNormalizados);
     } catch (err: any) {
       console.error('Error al cargar usuarios:', err);
       setError('No se pudieron cargar los usuarios. ' + (err.message || ''));
@@ -340,10 +353,12 @@ const GestionUsuarios = () => {
       setOrdenAscendente(true);
     }
   };
-  
-  // Obtener color de badge para rol
+    // Obtener color de badge para rol
   const getColorBadgeRol = (rol: RolNombre) => {
-    switch (rol) {
+    // Normalizar el rol para manejar casos con o sin prefijo "ROLE_"
+    const normalizedRole = rol.includes('ROLE_') ? rol : `ROLE_${rol}`;
+    
+    switch (normalizedRole) {
       case 'ROLE_ADMIN':
         return 'bg-yellow-100 text-yellow-800';
       case 'ROLE_CAJERO':
@@ -422,17 +437,16 @@ const GestionUsuarios = () => {
             <label htmlFor="filtroRol" className="block text-sm font-medium text-gray-700 mb-1">
               Filtrar por rol
             </label>
-            <div className="relative">
-              <select
+            <div className="relative">              <select
                 id="filtroRol"
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 appearance-none"
                 value={filtroRol}
                 onChange={(e) => setFiltroRol(e.target.value as RolNombre | 'TODOS')}
               >
                 <option value="TODOS">Todos los roles</option>
-                <option value="ADMIN">Administrador</option>
-                <option value="CAJERO">Cajero</option>
-                <option value="ALMACENERO">Almacenero</option>
+                <option value="ROLE_ADMIN">Administrador</option>
+                <option value="ROLE_CAJERO">Cajero</option>
+                <option value="ROLE_ALMACENERO">Almacenero</option>
               </select>
               <Filter size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <ChevronDown size={18} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -569,8 +583,7 @@ const GestionUsuarios = () => {
                           <div className="text-sm font-medium text-gray-900">{usuario.usuario}</div>
                         </div>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    </td>                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex flex-wrap gap-1">
                         {usuario.roles && usuario.roles.length > 0 ? (
                           usuario.roles.map((rol, index) => (
@@ -578,7 +591,7 @@ const GestionUsuarios = () => {
                               key={index} 
                               className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getColorBadgeRol(rol.nombreRol)}`}
                             >
-                              {rol.nombreRol}
+                              {rol.nombreRol.replace('ROLE_', '')}
                             </span>
                           ))
                         ) : (
@@ -707,8 +720,7 @@ const GestionUsuarios = () => {
                     Roles
                   </label>
                   <div className="flex flex-wrap gap-2">
-                    {(['ROLE_ADMIN', 'ROLE_CAJERO', 'ROLE_ALMACENERO'] as RolNombre[]).map(rol => (
-                      <button
+                    {(['ROLE_ADMIN', 'ROLE_CAJERO', 'ROLE_ALMACENERO'] as RolNombre[]).map(rol => (                      <button
                         key={rol}
                         type="button"
                         onClick={() => toggleRol(rol)}
@@ -718,7 +730,7 @@ const GestionUsuarios = () => {
                             : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                         }`}
                       >
-                        {rol}
+                        {rol.replace('ROLE_', '')}
                       </button>
                     ))}
                   </div>
