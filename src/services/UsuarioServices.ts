@@ -1,44 +1,52 @@
 import axios from 'axios';
 import type { Usuario } from '../interfaces/Usuario';
-
-const API_URL = 'http://localhost:8080';
-
-export interface UsuarioDTO extends Usuario {
-  // Si el DTO del backend tiene campos adicionales que no están en la interfaz Usuario
-  // puedes agregarlos aquí
-}
+import { RUTAS_USUARIOS } from '../config/apiConfig';
 
 export const ServicioUsuarios = {
   obtenerTodos: async (): Promise<Usuario[]> => {
-    const respuesta = await axios.get<Usuario[]>(`${API_URL}/api/v1/user`);
+    console.log('Obteniendo todos los usuarios...');
+    const respuesta = await axios.get<Usuario[]>(RUTAS_USUARIOS.BASE);
+    console.log('Respuesta obtenerTodos:', respuesta.data);
     return respuesta.data;
   },
 
-  obtenerUsuariosConRoles: async (): Promise<UsuarioDTO[]> => {
-    const respuesta = await axios.get<UsuarioDTO[]>(`${API_URL}/api/v1/user/with-roles`);
-    return respuesta.data;
-  },
-  
-  obtenerUsuarioConRoles: async (id: number): Promise<UsuarioDTO> => {
-    const respuesta = await axios.get<UsuarioDTO>(`${API_URL}/api/v1/user/${id}/with-roles`);
-    return respuesta.data;
+  obtenerUsuariosConRoles: async (): Promise<Usuario[]> => {
+    console.log('Obteniendo usuarios con roles...');
+    try {
+      const respuesta = await axios.get<Usuario[]>(`${RUTAS_USUARIOS.BASE}/with-roles`);
+      console.log('Respuesta obtenerUsuariosConRoles:', respuesta.data);
+      return respuesta.data;
+    } catch (error) {
+      console.error('Error en obtenerUsuariosConRoles:', error);
+      // Si falla el endpoint con roles, usar el endpoint base como fallback
+      console.log('Usando fallback al endpoint base...');
+      return await ServicioUsuarios.obtenerTodos();
+    }
   },
   
   crear: async (datosUsuario: { usuario: string, clave: string, rol: string }): Promise<Usuario> => {
-    const respuesta = await axios.post<Usuario>(`${API_URL}/api/v1/user/createUser`, datosUsuario);
+    console.log('Creando usuario:', datosUsuario);
+    const respuesta = await axios.post<Usuario>(RUTAS_USUARIOS.CREAR, datosUsuario);
+    console.log('Respuesta crear:', respuesta.data);
     return respuesta.data;
   },
   
   actualizar: async (id: number, datosUsuario: Usuario): Promise<Usuario> => {
-    const respuesta = await axios.put<Usuario>(`${API_URL}/api/v1/user/${id}`, datosUsuario);
+    console.log('Actualizando usuario:', id, datosUsuario);
+    const respuesta = await axios.put<Usuario>(RUTAS_USUARIOS.POR_ID(id), datosUsuario);
+    console.log('Respuesta actualizar:', respuesta.data);
     return respuesta.data;
   },
   
   deshabilitar: async (id: number): Promise<void> => {
-    await axios.put(`${API_URL}/api/v1/user/deshabilitar/${id}`);
+    console.log('Deshabilitando usuario:', id);
+    await axios.put(RUTAS_USUARIOS.DESHABILITAR(id));
+    console.log('Usuario deshabilitado exitosamente');
   },
   
   habilitar: async (id: number): Promise<void> => {
-    await axios.put(`${API_URL}/api/v1/user/habilitar/${id}`);
+    console.log('Habilitando usuario:', id);
+    await axios.put(RUTAS_USUARIOS.HABILITAR(id));
+    console.log('Usuario habilitado exitosamente');
   }
 };

@@ -578,12 +578,12 @@ const GestionUsuarios = () => {
                       <div className="flex items-center">
                         <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
                           {usuario.usuario.substring(0, 2).toUpperCase()}
-                        </div>
-                        <div className="ml-4">
+                        </div>                        <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900">{usuario.usuario}</div>
                         </div>
                       </div>
-                    </td>                    <td className="px-6 py-4 whitespace-nowrap">
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex flex-wrap gap-1">
                         {usuario.roles && usuario.roles.length > 0 ? (
                           usuario.roles.map((rol, index) => (

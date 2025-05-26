@@ -5,6 +5,27 @@ import { jwtDecode } from 'jwt-decode';
 import type { Usuario } from '../interfaces/Usuario';
 import type { CredencialesLogin, RespuestaAutenticacion } from '../interfaces/Usuario';
 import type { RolNombre } from '../interfaces/enums';
+import { RUTAS_AUTENTICACION } from '../config/apiConfig';
+
+// Create a custom axios instance to handle CORS issues
+const apiAxios = axios.create({
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  }
+});
+
+// Remove problematic headers that cause CORS issues
+apiAxios.interceptors.request.use(
+  (config) => {
+    // Remove Origin header that's causing CORS 403 error
+    delete config.headers['Origin'];
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
 // Constantes para los roles
 const ROLE_ADMIN = 'ROLE_ADMIN';
@@ -156,24 +177,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
       axios.interceptors.response.eject(responseInterceptor);
     };
-  }, [token]);
-
-  const iniciarSesion = async (credenciales: CredencialesLogin): Promise<boolean> => {
+  }, [token]);  const iniciarSesion = async (credenciales: CredencialesLogin): Promise<boolean> => {
     try {
       setError(null);
       setCargando(true);
       console.log('Iniciando sesión con:', { usuario: credenciales.usuario });
       
-      const respuesta = await axios.post<RespuestaAutenticacion>(
-        'http://localhost:8080/api/v1/autenticacion/signin', 
+      const respuesta = await apiAxios.post<RespuestaAutenticacion>(
+        RUTAS_AUTENTICACION.INICIAR_SESION, 
         {
           usuario: credenciales.usuario,
           clave: credenciales.clave
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json'
-          }
         }
       );
       

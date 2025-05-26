@@ -23,11 +23,10 @@ const AperturaCaja = ({ onAperturaCompleta }: AperturaCajaProps) => {
 
     try {
       setCargando(true);
-      // Aquí iría la lógica para registrar la apertura de caja
-      // Por ahora solo simulamos un delay
+  
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Al completar exitosamente
+
       onAperturaCompleta();
     } catch (err) {
       setError('Ocurrió un error al registrar la apertura de caja');

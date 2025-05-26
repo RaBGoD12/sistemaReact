@@ -5,7 +5,6 @@ import type { Usuario } from '../../interfaces/Usuario';
 import {
   Menu,
   X,
-  Home,
   BarChart3,
   Users,
   Package,
@@ -113,14 +112,18 @@ const SidebarMenu = ({ vistaActual, cambiarVista, usuario, cerrarSesion }: Sideb
         vistaActual === vista
           ? 'bg-gray-800 text-white shadow-md'
           : 'text-gray-400 hover:bg-gray-800/40 hover:text-white'
-      }`}
-      onClick={() => {
+      }`}      onClick={() => {
         cambiarVista(vista);
         if (onClick) {
           onClick();
         } else {
-          // Redirigir según la vista seleccionada si no hay onClick personalizado
-          navigate('/pages/CajeroSistemaVentas', { state: { view: vista } });
+          // Solo redirigir a CajeroSistemaVentas para vistas de cajero
+          const vistasDeCarjero = ['apertura', 'ventas', 'cierre'];
+          if (vistasDeCarjero.includes(vista)) {
+            navigate('/pages/CajeroSistemaVentas', { state: { view: vista } });
+          }
+          // Para otras vistas que no tienen onClick personalizado, no navegar automáticamente
+          // Esto evita redirecciones incorrectas y permite manejar cada caso específicamente
         }
         
         // En dispositivos móviles, cerrar el sidebar después de la selección
@@ -162,23 +165,9 @@ const SidebarMenu = ({ vistaActual, cambiarVista, usuario, cerrarSesion }: Sideb
       )}
     </button>
   );
-
   const handleLogout = () => {
     cerrarSesion();
     navigate('/login');
-  };
-
-  const getIconoParaVista = (vista: string) => {
-    switch (vista) {
-      case 'apertura':
-        return <Clock size={20} />;
-      case 'ventas':
-        return <ShoppingCart size={20} />;
-      case 'cierre':
-        return <DollarSign size={20} />;
-      default:
-        return <Home size={20} />;
-    }
   };
 
   // Determinar ancho del sidebar según estado
@@ -324,16 +313,25 @@ const SidebarMenu = ({ vistaActual, cambiarVista, usuario, cerrarSesion }: Sideb
                     vista="usuarios" 
                     icono={<Users size={20} />}
                     onClick={() => navigate('/pages/GestionUsuarios')}
-                  />
-                  <MenuItem 
+                  />                  <MenuItem 
                     texto="Productos" 
                     vista="productos-admin" 
                     icono={<Package size={20} />}
+                    onClick={() => {
+                      // TODO: Crear página de gestión de productos para admin
+                      console.log('Navegando a gestión de productos - página pendiente por crear');
+                      // navigate('/pages/GestionProductos');
+                    }}
                   />
                   <MenuItem 
                     texto="Reportes" 
                     vista="reportes-admin" 
                     icono={<BarChart3 size={20} />}
+                    onClick={() => {
+                      // TODO: Crear página de reportes para admin
+                      console.log('Navegando a reportes - página pendiente por crear');
+                      // navigate('/pages/ReportesAdmin');
+                    }}
                   />
 
               
@@ -354,21 +352,35 @@ const SidebarMenu = ({ vistaActual, cambiarVista, usuario, cerrarSesion }: Sideb
               
               {/* Submenu de Inventario */}
               {(mostrarSubmenuInventario || sidebarCollapsed) && (
-                <div className={`space-y-1 mt-1 ${sidebarCollapsed ? '' : 'ml-2'}`}>
-                  <MenuItem 
+                <div className={`space-y-1 mt-1 ${sidebarCollapsed ? '' : 'ml-2'}`}>                  <MenuItem 
                     texto="Productos" 
                     vista="productos-inventario" 
                     icono={<Package size={20} />}
+                    onClick={() => {
+                      // TODO: Crear página de gestión de inventario
+                      console.log('Navegando a gestión de inventario - página pendiente por crear');
+                      // navigate('/pages/GestionInventario');
+                    }}
                   />
                   <MenuItem 
                     texto="Proveedores" 
                     vista="proveedores" 
                     icono={<Users size={20} />}
+                    onClick={() => {
+                      // TODO: Crear página de gestión de proveedores
+                      console.log('Navegando a gestión de proveedores - página pendiente por crear');
+                      // navigate('/pages/GestionProveedores');
+                    }}
                   />
                   <MenuItem 
                     texto="Reportes" 
                     vista="reportes-inventario" 
                     icono={<BarChart3 size={20} />}
+                    onClick={() => {
+                      // TODO: Crear página de reportes de inventario
+                      console.log('Navegando a reportes de inventario - página pendiente por crear');
+                      // navigate('/pages/ReportesInventario');
+                    }}
                   />
                 </div>
               )}

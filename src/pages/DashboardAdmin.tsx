@@ -56,8 +56,7 @@ const DashboardAdmin = () => {
       setCargando(true);
       setError(null);
       
-      try {
-        // Cargar productos
+      try {        // Cargar productos
         const productosData = await ProductoService.getAllProductos();
         setProductos(productosData);
         

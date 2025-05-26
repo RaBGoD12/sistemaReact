@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Search, X, AlertCircle, Printer, CreditCard, Smartphone, DollarSign, CheckCircle, Loader2, Ticket } from 'lucide-react';
-import { ProductoService } from '../../services/ProductoServices';
+import { useProductoService } from '../../hooks/useProductoService';
 import { VentaService } from '../../services/VentaServices';
 import { ClienteService } from '../../services/ClienteServices';
 import type { Producto, ProductoVenta } from '../../interfaces/Producto';
@@ -9,6 +9,9 @@ import type { VentaInput, Venta } from '../../interfaces/Venta';
 import type { DetalleVentaInput } from '../../interfaces/DetalleVenta';
 
 const VentasPanel = () => {
+  // Get role-aware product service methods
+  const productoService = useProductoService();
+  
   // --------------------------------------------------------------------------------------------
   // A. ESTADO DEL COMPONENTE
   // --------------------------------------------------------------------------------------------
@@ -41,13 +44,10 @@ const VentasPanel = () => {
     const cargarTodosLosProductos = async () => {
       try {
         setCargandoProductosIniciales(true);
-        setErrorGlobal(null);
-        setMensajeInfoVista("Cargando productos...");
-        
-        // Usar tu método existente getAllProductos
-        const data = await ProductoService.getAllProductos();
+        setErrorGlobal(null);        setMensajeInfoVista("Cargando productos...");        // Usar el hook personalizado que maneja roles automáticamente
+        const data = await productoService.getAllProductos();
         setProductosCargados(data);
-        setProductosFiltradosVista(data); 
+        setProductosFiltradosVista(data);
         
         if (data.length === 0) { 
           setMensajeInfoVista("No hay productos disponibles o el servicio no está conectado.");
@@ -103,11 +103,9 @@ const VentasPanel = () => {
       setMensajeInfoVista(`Buscando "${terminoBusqueda}" en DB...`);
       
       // Combinamos búsquedas por nombre y código para tener un resultado más completo
-      let resultados: Producto[] = [];
-      
-      try {
+      let resultados: Producto[] = [];      try {
         // Buscar por nombre
-        const productosPorNombre = await ProductoService.getProductosByNombre(terminoBusqueda);
+        const productosPorNombre = await productoService.getProductosByNombre(terminoBusqueda);
         if (productosPorNombre && productosPorNombre.length > 0) {
           resultados = [...productosPorNombre];
         }
@@ -117,11 +115,11 @@ const VentasPanel = () => {
       
       try {
         // Buscar por código si es posible
-        const productosPorCodigo = await ProductoService.getProductosByCodigo(terminoBusqueda);
+        const productosPorCodigo = await productoService.getProductosByCodigo(terminoBusqueda);
         if (productosPorCodigo && productosPorCodigo.length > 0) {
           // Eliminar duplicados si ya existen en resultados
           const productosCodSinDuplicados = productosPorCodigo.filter(
-            prodCod => !resultados.some(prod => prod.idProducto === prodCod.idProducto)
+            (prodCod: Producto) => !resultados.some(prod => prod.idProducto === prodCod.idProducto)
           );
           resultados = [...resultados, ...productosCodSinDuplicados];
         }
@@ -149,11 +147,8 @@ const VentasPanel = () => {
     if (!codigoScaneado.trim()) return;
     try {
       setCargandoBusquedaAccion(true);
-      setErrorGlobal(null);
-      setMensajeInfoVista(`Procesando código "${codigoScaneado}"...`);
-      
-      // Usar el método getProductosByCodigo y tomar el primer resultado
-      const productos = await ProductoService.getProductosByCodigo(codigoScaneado.trim());
+      setErrorGlobal(null);      setMensajeInfoVista(`Procesando código "${codigoScaneado}"...`);      // Usar el hook personalizado que maneja roles automáticamente
+      const productos = await productoService.getProductosByCodigo(codigoScaneado.trim());
       const productoEncontrado = productos && productos.length > 0 ? productos[0] : null;
       
       if (productoEncontrado) {
@@ -418,10 +413,9 @@ const VentasPanel = () => {
       default: return 1; // Efectivo por defecto
     }
   };
-  
-  const handleImprimirBoleta = () => { 
+    const handleImprimirBoleta = () => { 
     if (!datosVentaParaBoleta) return;
-    const { cliente, productos: productosBoleta, subtotal, igv, totalGeneral, fechaHora, metodoPago: mp } = datosVentaParaBoleta;
+    const { cliente, productos: productosBoleta, subtotal, totalGeneral, fechaHora, metodoPago: mp } = datosVentaParaBoleta;
     const fechaFormateada = new Date(fechaHora).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short'});
     
     let itemsHtml = productosBoleta.map((p: any) => `

@@ -50,18 +50,25 @@ const RedirectToDashboard = () => {
 // Componente para rutas protegidas
 interface RutaProtegidaProps {
   children: React.ReactNode;
-  rolRequerido?: RolNombre;
+  rolRequerido?: RolNombre | RolNombre[];
 }
 
 const RutaProtegida = ({ children, rolRequerido }: RutaProtegidaProps) => {
   const { usuario, tieneRol } = useAuth();
   const location = useLocation();
 
+  const tieneAlgunRol = (roles: RolNombre | RolNombre[]) => {
+    if (Array.isArray(roles)) {
+      return roles.some(rol => tieneRol(rol));
+    }
+    return tieneRol(roles);
+  };
+
   console.log("RutaProtegida - Verificando acceso:", {
     ruta: location.pathname,
     usuarioPresente: !!usuario,
     rolRequerido: rolRequerido,
-    tieneRolRequerido: rolRequerido ? tieneRol(rolRequerido) : true,
+    tieneRolRequerido: rolRequerido ? tieneAlgunRol(rolRequerido) : true,
   });
 
   if (!usuario) {
@@ -69,9 +76,9 @@ const RutaProtegida = ({ children, rolRequerido }: RutaProtegidaProps) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (rolRequerido && !tieneRol(rolRequerido)) {
+  if (rolRequerido && !tieneAlgunRol(rolRequerido)) {
     console.log(
-      `RutaProtegida - Usuario no tiene rol ${rolRequerido}, redirigiendo a /`
+      `RutaProtegida - Usuario no tiene rol(es) ${rolRequerido}, redirigiendo a /`
     );
     return <Navigate to="/" replace />;
   }
@@ -140,9 +147,7 @@ function App() {
       <Route
         path="/pages/CajeroSistemaVentas"
         element={
-          <RutaProtegida rolRequerido="ROLE_CAJERO">
-            {" "}
-            {/* Cambiado de "CAJERO" */}
+          <RutaProtegida rolRequerido={["ROLE_CAJERO", "ROLE_ADMIN"]}>
             <Layout>
               <CajeroSistemaVentas />
             </Layout>
